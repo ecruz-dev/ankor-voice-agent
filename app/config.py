@@ -31,16 +31,20 @@ def _get_float(name: str, default: float) -> float:
 
 @dataclass(frozen=True)
 class Settings:
+    app_name: str
     live_model: str
     use_vertex_ai: bool
     google_cloud_project: Optional[str]
     google_cloud_location: Optional[str]
     ankor_api_base_url: str
     http_timeout_s: float
+    manual_activity_signals: bool
+    expose_tool_events: bool
 
 
 def load_settings() -> Settings:
     return Settings(
+        app_name=_get_env("APP_NAME", "ankor-voice-agent"),
         live_model=_get_env("LIVE_MODEL", "gemini-live-2.5-flash-native-audio"),
         use_vertex_ai=_get_bool("GOOGLE_GENAI_USE_VERTEXAI", True),
         google_cloud_project=_get_env("GOOGLE_CLOUD_PROJECT"),
@@ -50,6 +54,8 @@ def load_settings() -> Settings:
             "https://hjimvofwrmvwuonkyryl.supabase.co/functions/v1/api",
         ),
         http_timeout_s=_get_float("HTTP_TIMEOUT_S", 20.0),
+        manual_activity_signals=_get_bool("MANUAL_ACTIVITY_SIGNALS", False),
+        expose_tool_events=_get_bool("EXPOSE_TOOL_EVENTS", False),
     )
 
 

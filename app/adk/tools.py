@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from app.integrations.ankor_api import AnkorApiClient
 from app.schemas.tool_inputs import EvaluationInput
@@ -100,7 +100,7 @@ def build_tools(client: AnkorApiClient, state: SessionState) -> List[object]:
         )
 
     async def evaluations_bulk_create(
-        evaluations: List[EvaluationInput],
+        evaluations: List[Dict[str, Any]],
         org_id: Optional[str] = None,
     ) -> EvaluationsBulkCreateOutput:
         _require_same("org_id", state.org_id, org_id)
@@ -108,6 +108,8 @@ def build_tools(client: AnkorApiClient, state: SessionState) -> List[object]:
 
         normalized_evaluations: List[EvaluationInput] = []
         for evaluation in evaluations:
+            if not isinstance(evaluation, dict):
+                raise ValueError("Each evaluation must be an object")
             _require_same("org_id", resolved_org_id, evaluation.get("org_id"))
             _require_same("team_id", state.team_id, evaluation.get("team_id"))
             _require_same("coach_id", state.coach_id, evaluation.get("coach_id"))

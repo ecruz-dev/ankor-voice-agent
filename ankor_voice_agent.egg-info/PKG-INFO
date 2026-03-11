@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: ankor-voice-agent
+Version: 0.1.0
+Summary: ANKOR voice agent using Google ADK Streaming + Gemini Live API.
+Requires-Python: >=3.11
+Requires-Dist: fastapi>=0.110.0
+Requires-Dist: uvicorn[standard]>=0.27.0
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: google-adk>=0.5.0
+Requires-Dist: google-genai>=0.7.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0.0; extra == "dev"

@@ -1,0 +1,20 @@
+[project]
+name = "ankor-voice-agent"
+version = "0.1.0"
+description = "ANKOR voice agent using Google ADK Streaming + Gemini Live API."
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.110.0",
+  "uvicorn[standard]>=0.27.0",
+  "httpx>=0.27.0",
+  "google-adk>=0.5.0",
+  "google-genai>=0.7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+]
+
+[tool.ruff]
+line-length = 100
