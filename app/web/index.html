@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ANKOR Voice Agent Tester</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/ui/assets/styles.css" />
+  </head>
+  <body>
+    <div class="bg-shape bg-shape-1"></div>
+    <div class="bg-shape bg-shape-2"></div>
+    <main class="shell">
+      <header class="hero">
+        <p class="eyebrow">ANKOR VOICE AGENT</p>
+        <h1>Live Voice Test Console</h1>
+        <p class="subhead">Authenticate, initialize session, stream audio, inspect events.</p>
+      </header>
+
+      <section class="panel grid">
+        <div class="card">
+          <h2>Connection</h2>
+          <label>WebSocket URL <input id="wsUrl" /></label>
+          <label>Access Token <textarea id="accessToken" rows="3" placeholder="Supabase access token"></textarea></label>
+          <div class="row">
+            <button id="connectBtn">Connect + Auth</button>
+            <button id="disconnectBtn" class="ghost">Disconnect</button>
+          </div>
+          <p id="status" class="status">Disconnected</p>
+        </div>
+
+        <div class="card">
+          <h2>Session Init</h2>
+          <label>Org ID <input id="orgId" /></label>
+          <label>Team ID <input id="teamId" /></label>
+          <label>Coach ID <input id="coachId" /></label>
+          <label>Locale <input id="locale" value="en-US" /></label>
+          <div class="row">
+            <button id="initBtn">Send session_init</button>
+            <button id="resetBtn" class="ghost">Reset Session</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel grid">
+        <div class="card">
+          <h2>Voice</h2>
+          <div class="row">
+            <button id="startMicBtn">Start Mic</button>
+            <button id="stopMicBtn" class="ghost">Stop Mic</button>
+          </div>
+          <p class="meta">Audio format: PCM16LE, mono, 16kHz</p>
+        </div>
+
+        <div class="card">
+          <h2>Text Input</h2>
+          <label>Message <textarea id="textInput" rows="3" placeholder="Type a test instruction"></textarea></label>
+          <button id="sendTextBtn">Send input_text</button>
+        </div>
+      </section>
+
+      <section class="panel grid">
+        <div class="card">
+          <h2>Transcript & Messages</h2>
+          <div id="messages" class="log"></div>
+        </div>
+        <div class="card">
+          <h2>Raw Events</h2>
+          <div id="events" class="log mono"></div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/ui/assets/app.js"></script>
+  </body>
+</html>

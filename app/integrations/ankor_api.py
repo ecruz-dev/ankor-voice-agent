@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import logging
+import time
 from typing import Any, Dict, Optional
 
 import httpx
+
+
+logger = logging.getLogger("ankor_voice_agent.integrations.ankor_api")
 
 
 class AnkorApiError(RuntimeError):
@@ -47,15 +52,41 @@ class AnkorApiClient:
         params: Optional[Dict[str, Any]] = None,
         json: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
+        normalized_path = self._normalize_path(path)
+        logger.info(
+            "ANKOR API request method=%s path=%s params=%s json=%s",
+            method,
+            normalized_path,
+            params,
+            json,
+        )
+        started = time.perf_counter()
         response = await self._client.request(
             method=method,
-            url=self._normalize_path(path),
+            url=normalized_path,
             headers=self._auth_headers(access_token),
             params=params,
             json=json,
         )
+        elapsed_ms = int((time.perf_counter() - started) * 1000)
+        logger.info(
+            "ANKOR API response method=%s url=%s status=%s elapsed_ms=%s",
+            method,
+            str(response.url),
+            response.status_code,
+            elapsed_ms,
+        )
         if response.status_code >= 400:
             detail = response.text.strip() or "Unknown error"
+            logger.error(
+                "ANKOR API error method=%s url=%s status=%s params=%s json=%s detail=%s",
+                method,
+                str(response.url),
+                response.status_code,
+                params,
+                json,
+                detail,
+            )
             raise AnkorApiError(response.status_code, str(response.url), detail)
         try:
             return response.json()

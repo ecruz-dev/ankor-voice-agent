@@ -3,10 +3,13 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
+from pathlib import Path
 from typing import Any, Dict, Optional
 from uuid import uuid4
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from google.genai import types
 
 from app.adk.agent import build_root_agent
@@ -18,13 +21,31 @@ from app.session_state import SessionState, new_session_state
 
 
 logger = logging.getLogger("ankor_voice_agent")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+logger.setLevel(logging.INFO)
+logging.getLogger("ankor_voice_agent.integrations.ankor_api").setLevel(logging.INFO)
 
 app = FastAPI()
+_WEB_DIR = Path(__file__).resolve().parent / "web"
+app.mount("/ui/assets", StaticFiles(directory=_WEB_DIR), name="ui-assets")
 
 
 @app.get("/health")
 def health() -> Dict[str, Any]:
     return {"ok": True, "model": settings.live_model}
+
+
+@app.get("/")
+def ui_root() -> FileResponse:
+    return FileResponse(_WEB_DIR / "index.html")
+
+
+@app.get("/ui")
+def ui_page() -> FileResponse:
+    return FileResponse(_WEB_DIR / "index.html")
 
 
 def _state_summary(state: SessionState) -> Dict[str, Any]:

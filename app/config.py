@@ -2,14 +2,55 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
+
+
+def _load_dotenv() -> None:
+    try:
+        from dotenv import load_dotenv
+    except Exception:
+        return
+    # Keep real environment variables authoritative over .env values.
+    load_dotenv(override=False)
+    # Also load from repository root explicitly in case process CWD differs.
+    repo_env = Path(__file__).resolve().parents[1] / ".env"
+    if repo_env.exists():
+        load_dotenv(dotenv_path=repo_env, override=False)
+
+
+def _normalize_runtime_env() -> None:
+    """
+    Strip surrounding whitespace/CR from selected env vars that are consumed by
+    SDKs directly (not via Settings), e.g. GOOGLE_API_KEY.
+    """
+    if not os.getenv("GOOGLE_API_KEY") and os.getenv("GEMINI_API_KEY"):
+        os.environ["GOOGLE_API_KEY"] = os.getenv("GEMINI_API_KEY", "")
+
+    keys = [
+        "GOOGLE_API_KEY",
+        "GEMINI_API_KEY",
+        "GOOGLE_CLOUD_PROJECT",
+        "GOOGLE_CLOUD_LOCATION",
+        "GOOGLE_GENAI_USE_VERTEXAI",
+        "ANKOR_API_BASE_URL",
+        "LIVE_MODEL",
+        "APP_NAME",
+    ]
+    for key in keys:
+        value = os.getenv(key)
+        if value is not None:
+            os.environ[key] = value.strip()
 
 
 def _get_env(name: str, default: Optional[str] = None) -> Optional[str]:
     value = os.getenv(name)
-    if value is None or value.strip() == "":
+    if value is None:
         return default
-    return value
+    normalized = value.strip()
+    if normalized == "":
+        return default
+    return normalized
 
 
 def _get_bool(name: str, default: bool = False) -> bool:
@@ -21,10 +62,13 @@ def _get_bool(name: str, default: bool = False) -> bool:
 
 def _get_float(name: str, default: float) -> float:
     value = os.getenv(name)
-    if value is None or value.strip() == "":
+    if value is None:
+        return default
+    normalized = value.strip()
+    if normalized == "":
         return default
     try:
-        return float(value)
+        return float(normalized)
     except ValueError as exc:
         raise ValueError(f"Invalid float for {name}: {value}") from exc
 
@@ -43,6 +87,8 @@ class Settings:
 
 
 def load_settings() -> Settings:
+    _load_dotenv()
+    _normalize_runtime_env()
     return Settings(
         app_name=_get_env("APP_NAME", "ankor-voice-agent"),
         live_model=_get_env("LIVE_MODEL", "gemini-live-2.5-flash-native-audio"),

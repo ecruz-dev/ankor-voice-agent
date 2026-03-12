@@ -35,6 +35,20 @@ pip install -e .
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
+## Web UI Tester
+
+Open the built-in tester in your browser:
+
+- `http://localhost:8000/` (or `http://localhost:8000/ui`)
+
+The UI supports:
+
+- WebSocket connect/auth/session init
+- Text input testing
+- Microphone streaming as PCM16LE 16kHz mono
+- Transcript/messages/event log
+- Agent audio playback
+
 ## WebSocket Protocol (Summary)
 
 1. Connect to `ws://<host>:8000/ws/voice`

@@ -13,9 +13,11 @@ from google.adk.agents.run_config import RunConfig, StreamingMode
 from google.adk.events import Event
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
+from google.genai.errors import APIError, ServerError
 from google.genai import types
 
 from app.config import settings
+from app.integrations.ankor_api import AnkorApiError
 from app.session_state import SessionState
 from app.ws_protocol import ServerMessage
 
@@ -47,13 +49,16 @@ def _build_run_config() -> RunConfig:
             automatic_activity_detection=types.AutomaticActivityDetection(disabled=True)
         )
 
-    return RunConfig(
+    run_config = RunConfig(
         streaming_mode=StreamingMode.BIDI,
-        response_modalities=[types.Modality.AUDIO],
         input_audio_transcription=types.AudioTranscriptionConfig(),
         output_audio_transcription=types.AudioTranscriptionConfig(),
         realtime_input_config=realtime_input_config,
     )
+    # Keep enum instances here to avoid pydantic serializer warnings in
+    # google-genai live config generation (RunConfig coerces enums to str).
+    run_config.response_modalities = [types.Modality.AUDIO]
+    return run_config
 
 
 def _parse_sample_rate(mime_type: Optional[str], default_rate: int = 16000) -> int:
@@ -142,25 +147,105 @@ async def _consume_events(
     run_config: RunConfig,
     send_message: SendMessage,
 ) -> None:
-    try:
-        async for event in runner.run_live(
-            user_id=user_id,
-            session_id=session_id,
-            live_request_queue=queue,
-            run_config=run_config,
-        ):
-            await _emit_event_messages(event, send_message)
-    except asyncio.CancelledError:
-        raise
-    except Exception as exc:
-        logger.exception("Live session error: %s", exc)
-        await send_message(
-            {
-                "type": "error",
-                "code": "live_session_error",
-                "message": "Live session failed",
-            }
-        )
+    max_retries = 3
+    attempt = 0
+
+    while True:
+        try:
+            async for event in runner.run_live(
+                user_id=user_id,
+                session_id=session_id,
+                live_request_queue=queue,
+                run_config=run_config,
+            ):
+                await _emit_event_messages(event, send_message)
+            return
+        except asyncio.CancelledError:
+            raise
+        except (APIError, ServerError) as exc:
+            # Transient Live API outages can surface as websocket close code 1011
+            # or HTTP 5xx. Retry with bounded exponential backoff.
+            retryable = exc.code in {1011, 500, 502, 503, 504}
+            if retryable and attempt < max_retries:
+                attempt += 1
+                backoff_s = min(2**attempt, 8)
+                logger.warning(
+                    "Transient live API error (code=%s). Retrying %s/%s in %ss.",
+                    exc.code,
+                    attempt,
+                    max_retries,
+                    backoff_s,
+                )
+                await send_message(
+                    {
+                        "type": "error",
+                        "code": "live_session_retry",
+                        "message": "Live service temporarily unavailable. Retrying...",
+                    }
+                )
+                await asyncio.sleep(backoff_s)
+                continue
+
+            logger.exception("Live session error: %s", exc)
+            await send_message(
+                {
+                    "type": "error",
+                    "code": "live_session_error",
+                    "message": "Live session failed",
+                }
+            )
+            return
+        except AnkorApiError as exc:
+            if exc.status_code == 401:
+                logger.info("Ankor API token rejected (401): %s", exc.detail)
+                await send_message(
+                    {
+                        "type": "auth_error",
+                        "message": "Invalid or expired access token. Re-authenticate and start a new session.",
+                    }
+                )
+                return
+
+            logger.exception("Ankor API error during live session: %s", exc)
+            await send_message(
+                {
+                    "type": "error",
+                    "code": "ankor_api_error",
+                    "message": f"Upstream API request failed ({exc.status_code})",
+                }
+            )
+            return
+        except ValueError as exc:
+            message = str(exc)
+            if "No API key was provided" in message:
+                logger.error("Missing Google API key for live session.")
+                await send_message(
+                    {
+                        "type": "error",
+                        "code": "config_error",
+                        "message": "GOOGLE_API_KEY is missing. Set it in .env and restart the server.",
+                    }
+                )
+                return
+            logger.exception("Live session value error: %s", exc)
+            await send_message(
+                {
+                    "type": "error",
+                    "code": "live_session_error",
+                    "message": "Live session failed",
+                }
+            )
+            return
+        except Exception as exc:
+            logger.exception("Live session error: %s", exc)
+            await send_message(
+                {
+                    "type": "error",
+                    "code": "live_session_error",
+                    "message": "Live session failed",
+                }
+            )
+            return
 
 
 async def start_live_session(
